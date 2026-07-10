@@ -113,7 +113,9 @@ class LLMResolutionError(RuntimeError):
 
 
 class LLMConfigurationError(LLMResolutionError):
-    pass
+    def __init__(self, message: str, error_code: str = "llm_configuration_error") -> None:
+        super().__init__(message)
+        self.error_code = error_code
 
 
 class LLMBrain:
@@ -160,7 +162,11 @@ class LLMBrain:
                     explanation=str(exc),
                     needs_clarification=True,
                     clarification_question="请先在本机环境变量或私有 .env 中配置 OPENAI_API_KEY，然后重新提交问题。",
-                    debug={"llm_errors": [format_retry_error(exc)]},
+                    debug={
+                        "error_code": exc.error_code,
+                        "error_detail": str(exc),
+                        "llm_errors": [format_retry_error(exc)],
+                    },
                 )
             except Exception as exc:
                 errors.append(format_retry_error(exc))
@@ -214,7 +220,7 @@ class LLMBrain:
 
         load_private_env()
         if not os.getenv("OPENAI_API_KEY"):
-            raise LLMConfigurationError("缺少 OPENAI_API_KEY，无法调用真实 LLM。")
+            raise LLMConfigurationError("缺少 OPENAI_API_KEY，无法调用真实 LLM。", "missing_api_key")
 
         try:
             from openai import OpenAI
@@ -236,7 +242,10 @@ class LLMBrain:
         except Exception as exc:
             status_code = getattr(exc, "status_code", None)
             if status_code == 401:
-                raise LLMConfigurationError("OPENAI_API_KEY 无效或已失效，请检查 .env.local 后重新填写有效 Key。") from exc
+                raise LLMConfigurationError(
+                    "OPENAI_API_KEY 无效或已失效，请检查 .env.local 后重新填写有效 Key。",
+                    "invalid_api_key",
+                ) from exc
             raise
         message = response.choices[0].message
         refusal = getattr(message, "refusal", None)

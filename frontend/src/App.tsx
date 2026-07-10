@@ -27,6 +27,8 @@ type Resolution = {
   explanation: string;
   needs_clarification: boolean;
   clarification_question: string;
+  error_code?: string;
+  error_detail?: string;
 };
 
 type Message = {
@@ -70,6 +72,9 @@ export default function App() {
       }
 
       const resolution = (await response.json()) as Resolution;
+      const errorText = resolution.error_code
+        ? `错误原因：${resolution.error_detail || resolution.explanation}\n错误代码：${resolution.error_code}`
+        : "";
       const candidateText =
         resolution.candidates.length > 0
           ? resolution.candidates
@@ -82,7 +87,11 @@ export default function App() {
       const clarification = resolution.needs_clarification
         ? `\n\n${resolution.clarification_question}`
         : "";
-      const content = [resolution.explanation, candidateText, clarification]
+      const content = [
+        errorText || resolution.explanation,
+        candidateText,
+        clarification,
+      ]
         .filter(Boolean)
         .join("\n\n");
       setMessages((current) => [

@@ -36,7 +36,7 @@ def resolve(request: ResolveRequest) -> dict:
 
 
 def serialize_resolution(resolution: Resolution) -> dict:
-    return {
+    payload = {
         "query": resolution.query,
         "asset_type": resolution.asset_type.value,
         "primary": serialize_candidate(resolution.primary) if resolution.primary else None,
@@ -45,6 +45,10 @@ def serialize_resolution(resolution: Resolution) -> dict:
         "needs_clarification": resolution.needs_clarification,
         "clarification_question": resolution.clarification_question,
     }
+    if resolution.debug.get("error_code"):
+        payload["error_code"] = resolution.debug["error_code"]
+        payload["error_detail"] = resolution.debug.get("error_detail", resolution.explanation)
+    return payload
 
 
 def serialize_candidate(candidate: AssetCandidate) -> dict:
