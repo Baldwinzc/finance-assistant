@@ -8,6 +8,7 @@ from typing import Any
 class AssetType(str, Enum):
     A_STOCK = "a_stock"
     INDEX = "index"
+    INDUSTRY_INDEX = "industry_index"
     MARKET = "market"
     ETF = "etf"
     INDUSTRY_QUERY = "industry_query"
@@ -37,6 +38,9 @@ class Resolution:
     primary: AssetCandidate | None
     candidates: list[AssetCandidate]
     explanation: str
+    needs_clarification: bool = False
+    clarification_question: str = ""
+    debug: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -57,4 +61,3 @@ class AnalysisResult:
     figure: Any | None = None
     summary: list[ValuationSummary] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
-

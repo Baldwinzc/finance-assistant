@@ -13,14 +13,19 @@ def main() -> None:
     parser.add_argument("--start", default=None, help="开始日期，例如 2010-01-01")
     parser.add_argument("--end", default=None, help="结束日期，例如 2026-07-10")
     parser.add_argument("--output-dir", default="reports", help="输出目录")
+    parser.add_argument("--brain", choices=["auto", "llm", "rules"], default="auto", help="判断大脑：auto/llm/rules")
+    parser.add_argument("--resolve-only", action="store_true", help="只运行第一步标的判断，不获取数据、不绘图")
     args = parser.parse_args()
 
-    agent = ValuationAgent()
+    agent = ValuationAgent(brain_mode=args.brain)
+    if args.resolve_only:
+        resolution = agent.resolve(args.query)
+        print_resolution(resolution)
+        return
+
     result = agent.analyze(args.query, start=args.start, end=args.end)
 
-    print(result.resolution.explanation)
-    for candidate in result.resolution.candidates:
-        print(f"候选：{candidate.display_name} - {candidate.reason}")
+    print_resolution(result.resolution)
 
     if result.summary:
         print("\n历史估值位置：")
@@ -67,6 +72,13 @@ def safe_filename(value: str) -> str:
     return "".join(char if char.isalnum() or char in ("-", "_") else "_" for char in value)
 
 
+def print_resolution(resolution) -> None:
+    print(resolution.explanation)
+    if resolution.needs_clarification:
+        print(f"需要确认：{resolution.clarification_question}")
+    for candidate in resolution.candidates:
+        print(f"候选：{candidate.display_name} - 置信度 {candidate.score:.0%} - {candidate.reason}")
+
+
 if __name__ == "__main__":
     main()
-

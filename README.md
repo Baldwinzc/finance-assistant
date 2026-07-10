@@ -29,6 +29,22 @@ python -m valuation_agent.cli "沪深300" --start 2010-01-01
 python -m valuation_agent.cli "医疗行业"
 ```
 
+只运行第一步“标的判断”，不获取数据、不画图：
+
+```bash
+python3 -m valuation_agent.cli "贵州茅台" --resolve-only --brain rules
+python3 -m valuation_agent.cli "医疗行业" --resolve-only --brain rules
+```
+
+使用 LLM 大脑：
+
+```bash
+export OPENAI_API_KEY="你的 OpenAI API Key"
+python3 -m valuation_agent.cli "沪深三百" --resolve-only --brain llm
+```
+
+LLM 大脑会先让模型输出结构化 JSON，然后做本地 schema 校验和候选校验。若模型输出不是合法 JSON、schema 不匹配、候选代码不在上下文中，系统会把异常信息放回上下文中要求模型重试。置信度低于阈值时不会继续获取数据或绘图，而是要求用户确认候选。
+
 默认会在 `reports/` 下生成：
 
 - `*.html`：交互式估值曲线
@@ -46,9 +62,10 @@ streamlit run app.py
 ## 三步流程与检验
 
 1. 大脑判断
-   - 文件：`valuation_agent/brain.py`
-   - 检验：`python -m unittest tests/test_brain.py`
-   - 覆盖：代码识别、名称模糊匹配、错别字、行业模糊查询。
+   - 规则候选底座：`valuation_agent/brain.py`
+   - LLM 结构化大脑：`valuation_agent/llm_brain.py`
+   - 检验：`python3 -m unittest tests/test_brain.py tests/test_llm_brain.py`
+   - 覆盖：代码识别、名称模糊匹配、错别字、行业指数模糊查询、JSON Schema 校验、候选校验、异常回灌重试、低置信度确认。
 
 2. 获取信息
    - 文件：`valuation_agent/data.py`
@@ -75,3 +92,7 @@ python -m unittest discover -s tests
 - 行业主题优先推荐可交易 ETF 和常见指数；若公开接口没有稳定 PE/PB 历史，Agent 会给出候选并提示数据缺口。
 
 后续可扩展 Tushare：在 `.env` 或环境变量中设置 `TUSHARE_TOKEN` 后，可增加更完整的 A 股和指数估值覆盖。
+
+## 前端说明
+
+当前项目仍是 Python + Streamlit 的本地 MVP。已收到 React + shadcn/Tailwind/TypeScript 的聊天输入组件要求；正式前端迁移时应新建 React/TypeScript 前端，并将 `chat-input.tsx` 放入 `/components/ui`，同时补齐 `button`、`textarea`、`use-textarea-resize`、`lucide-react`、`@radix-ui/react-slot` 和 `class-variance-authority` 依赖。

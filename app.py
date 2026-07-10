@@ -14,6 +14,8 @@ st.title("中文估值分析 Agent")
 st.caption("输入股票、指数或行业关键词，查看历史 PE/PB、价格曲线和估值分位。")
 
 query = st.text_input("你想分析什么？", value="沪深300", placeholder="例如：贵州茅台、600519、沪深三百、医疗行业")
+brain_mode = st.segmented_control("判断大脑", options=["auto", "llm", "rules"], default="auto")
+resolve_only = st.toggle("只运行第一步判断", value=True)
 
 col_start, col_end = st.columns(2)
 with col_start:
@@ -24,17 +26,27 @@ with col_end:
 run = st.button("开始分析", type="primary")
 
 if run and query.strip():
-    agent = ValuationAgent()
-    with st.spinner("正在判断问题、获取数据并绘制估值曲线..."):
-        result = agent.analyze(query=query, start=start or None, end=end or None)
+    agent = ValuationAgent(brain_mode=brain_mode)
+    with st.spinner("正在判断问题..." if resolve_only else "正在判断问题、获取数据并绘制估值曲线..."):
+        if resolve_only:
+            resolution = agent.resolve(query=query)
+            result = None
+        else:
+            result = agent.analyze(query=query, start=start or None, end=end or None)
+            resolution = result.resolution
 
     st.subheader("判断结果")
-    st.write(result.resolution.explanation)
+    st.write(resolution.explanation)
+    if resolution.needs_clarification:
+        st.info(resolution.clarification_question)
 
-    if result.resolution.candidates:
+    if resolution.candidates:
         st.markdown("**候选对象**")
-        for item in result.resolution.candidates:
-            st.write(f"- {item.display_name}：{item.reason}")
+        for item in resolution.candidates:
+            st.write(f"- {item.display_name}：置信度 {item.score:.0%}，{item.reason}")
+
+    if resolve_only:
+        st.stop()
 
     if result.summary:
         st.subheader("历史估值位置")
@@ -59,4 +71,3 @@ if run and query.strip():
 
     if result.warnings:
         st.warning("\n".join(result.warnings))
-

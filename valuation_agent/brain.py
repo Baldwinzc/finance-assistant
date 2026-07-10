@@ -35,39 +35,35 @@ INDEX_ALIASES: dict[str, tuple[str, str, AssetType, dict[str, str]]] = {
 
 INDUSTRY_HINTS: dict[str, list[AssetCandidate]] = {
     "医疗": [
-        AssetCandidate(AssetType.INDUSTRY_QUERY, "399989.SZ", "中证医疗", 0.95, "医疗主题指数，适合先确认是否有可用估值源"),
-        AssetCandidate(AssetType.ETF, "512170", "医疗ETF", 0.9, "常见医疗主题 ETF，可用于观察价格和交易载体"),
-        AssetCandidate(AssetType.ETF, "512010", "医药ETF", 0.82, "医药主题 ETF，和医疗方向高度相关"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "399989.SZ", "中证医疗", 0.95, "医疗主题行业指数"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "000991.SH", "全指医药", 0.86, "医药行业指数，医疗方向相关"),
     ],
     "医药": [
-        AssetCandidate(AssetType.INDUSTRY_QUERY, "000991.SH", "全指医药", 0.95, "医药行业指数，适合观察行业整体位置"),
-        AssetCandidate(AssetType.ETF, "512010", "医药ETF", 0.9, "常见医药主题 ETF，可用于观察价格和交易载体"),
-        AssetCandidate(AssetType.ETF, "159938", "医药卫生ETF", 0.82, "医药卫生主题 ETF 候选"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "000991.SH", "全指医药", 0.95, "医药行业指数"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "399989.SZ", "中证医疗", 0.78, "医药行业中的医疗细分方向"),
     ],
     "白酒": [
-        AssetCandidate(AssetType.ETF, "512690", "酒ETF", 0.9, "白酒/酒类主题 ETF，可用于观察交易价格"),
-        AssetCandidate(AssetType.INDUSTRY_QUERY, "399997.SZ", "中证白酒", 0.88, "白酒主题指数，适合进一步接入估值数据源"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "399997.SZ", "中证白酒", 0.95, "白酒主题行业指数"),
     ],
     "半导体": [
-        AssetCandidate(AssetType.ETF, "512480", "半导体ETF", 0.9, "半导体主题 ETF，可用于观察价格和成交"),
-        AssetCandidate(AssetType.ETF, "159995", "芯片ETF", 0.85, "芯片主题 ETF 候选"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "990001.CSI", "中证半导体", 0.78, "半导体主题行业指数候选"),
     ],
     "新能源": [
-        AssetCandidate(AssetType.ETF, "516160", "新能源ETF", 0.9, "新能源主题 ETF 候选"),
-        AssetCandidate(AssetType.ETF, "515790", "光伏ETF", 0.82, "新能源细分方向 ETF 候选"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "930997.CSI", "中证新能源", 0.86, "新能源主题行业指数候选"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "931151.CSI", "光伏产业", 0.75, "新能源细分方向行业指数候选"),
     ],
     "证券": [
-        AssetCandidate(AssetType.ETF, "512880", "证券ETF", 0.9, "证券行业 ETF，可用于观察交易价格"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "399975.SZ", "证券公司", 0.9, "证券行业指数候选"),
     ],
     "银行": [
-        AssetCandidate(AssetType.ETF, "512800", "银行ETF", 0.9, "银行行业 ETF，可用于观察交易价格"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "399986.SZ", "中证银行", 0.9, "银行行业指数候选"),
     ],
     "消费": [
-        AssetCandidate(AssetType.ETF, "159928", "消费ETF", 0.9, "主要消费主题 ETF 候选"),
-        AssetCandidate(AssetType.ETF, "515650", "消费50ETF", 0.82, "消费龙头方向 ETF 候选"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "000932.SH", "中证消费", 0.86, "主要消费行业指数候选"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "000931.SH", "中证可选", 0.72, "可选消费行业指数候选"),
     ],
     "军工": [
-        AssetCandidate(AssetType.ETF, "512660", "军工ETF", 0.9, "军工主题 ETF，可用于观察价格"),
+        AssetCandidate(AssetType.INDUSTRY_INDEX, "399967.SZ", "中证军工", 0.9, "军工主题行业指数候选"),
     ],
 }
 
@@ -141,10 +137,10 @@ class Brain:
                 primary = candidates[0]
                 return Resolution(
                     normalized,
-                    AssetType.INDUSTRY_QUERY,
+                    AssetType.INDUSTRY_INDEX,
                     primary,
                     candidates,
-                    f"识别为“{keyword}”相关行业/主题查询，优先给出指数和 ETF 候选。",
+                    f"识别为“{keyword}”相关行业/主题查询，优先给出行业指数候选。",
                 )
         keyword_scores = [(keyword, similarity(normalized, keyword)) for keyword in INDUSTRY_HINTS]
         keyword_scores.sort(key=lambda item: item[1], reverse=True)
@@ -153,10 +149,10 @@ class Brain:
             candidates = INDUSTRY_HINTS[keyword]
             return Resolution(
                 normalized,
-                AssetType.INDUSTRY_QUERY,
+                AssetType.INDUSTRY_INDEX,
                 candidates[0],
                 candidates,
-                f"识别为行业/主题查询，最接近“{keyword}”。",
+                f"识别为行业/主题查询，最接近“{keyword}”，优先给出行业指数候选。",
             )
         return None
 
@@ -238,10 +234,10 @@ def asset_type_label(asset_type: AssetType) -> str:
     labels = {
         AssetType.A_STOCK: "A 股个股",
         AssetType.INDEX: "指数",
+        AssetType.INDUSTRY_INDEX: "行业指数",
         AssetType.MARKET: "市场指数",
         AssetType.ETF: "ETF",
         AssetType.INDUSTRY_QUERY: "行业/主题",
         AssetType.UNKNOWN: "未知对象",
     }
     return labels[asset_type]
-

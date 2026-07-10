@@ -30,10 +30,9 @@ class BrainTest(unittest.TestCase):
 
     def test_industry_query(self):
         result = self.brain.resolve("医疗行业")
-        self.assertEqual(result.asset_type, AssetType.INDUSTRY_QUERY)
+        self.assertEqual(result.asset_type, AssetType.INDUSTRY_INDEX)
         self.assertGreaterEqual(len(result.candidates), 2)
 
 
 if __name__ == "__main__":
     unittest.main()
-
