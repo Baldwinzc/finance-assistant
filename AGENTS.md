@@ -120,7 +120,7 @@ curl "$OPENAI_BASE_URL/responses" \
 
 当前仓库的 LLM 入口在 `valuation_agent/llm_brain.py`：
 
-- 缺少 `OPENAI_API_KEY` 时，LLM 模式会返回配置错误并要求切回 rules 模式。
+- 缺少 `OPENAI_API_KEY` 时，会返回配置错误并要求用户通过环境变量或私有 `.env` 注入 Key。
 - `VALUATION_AGENT_LLM_MODEL` 未设置时，会使用代码内默认模型。
 - 如果使用公司或其他 OpenAI 兼容代理，在本地设置 `OPENAI_BASE_URL`，不要改代码硬编码地址。
 
@@ -132,7 +132,7 @@ export OPENAI_API_KEY="<YOUR_API_KEY>"
 export OPENAI_BASE_URL="<AI_GATEWAY_BASE_URL>/v1"
 export VALUATION_AGENT_LLM_MODEL="<MODEL_NAME>"
 
-python3 -m valuation_agent.cli "沪深三百" --resolve-only --brain llm
+python3 -m valuation_agent.cli "沪深三百" --resolve-only
 ```
 
 ## 多能力接口约定

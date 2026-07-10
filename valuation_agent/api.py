@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Literal
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -23,7 +21,6 @@ app.add_middleware(
 
 class ResolveRequest(BaseModel):
     query: str
-    brain: Literal["auto", "llm", "rules"] = "llm"
 
 
 @app.get("/api/health")
@@ -33,7 +30,7 @@ def health() -> dict[str, str]:
 
 @app.post("/api/resolve")
 def resolve(request: ResolveRequest) -> dict:
-    agent = ValuationAgent(brain_mode=request.brain)
+    agent = ValuationAgent()
     resolution = agent.resolve(request.query)
     return serialize_resolution(resolution)
 

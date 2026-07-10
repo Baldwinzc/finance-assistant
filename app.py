@@ -14,7 +14,6 @@ st.title("中文估值分析 Agent")
 st.caption("输入股票、指数或行业关键词，查看历史 PE/PB、价格曲线和估值分位。")
 
 query = st.text_input("你想分析什么？", value="沪深300", placeholder="例如：贵州茅台、600519、沪深三百、医疗行业")
-brain_mode = st.segmented_control("判断大脑", options=["auto", "llm", "rules"], default="auto")
 resolve_only = st.toggle("只运行第一步判断", value=True)
 
 col_start, col_end = st.columns(2)
@@ -26,7 +25,7 @@ with col_end:
 run = st.button("开始分析", type="primary")
 
 if run and query.strip():
-    agent = ValuationAgent(brain_mode=brain_mode)
+    agent = ValuationAgent()
     with st.spinner("正在判断问题..." if resolve_only else "正在判断问题、获取数据并绘制估值曲线..."):
         if resolve_only:
             resolution = agent.resolve(query=query)

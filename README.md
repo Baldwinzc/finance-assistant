@@ -32,15 +32,15 @@ python -m valuation_agent.cli "医疗行业"
 只运行第一步“标的判断”，不获取数据、不画图：
 
 ```bash
-python3 -m valuation_agent.cli "贵州茅台" --resolve-only --brain rules
-python3 -m valuation_agent.cli "医疗行业" --resolve-only --brain rules
+python3 -m valuation_agent.cli "贵州茅台" --resolve-only
+python3 -m valuation_agent.cli "医疗行业" --resolve-only
 ```
 
-使用 LLM 大脑：
+第一步判断统一使用 LLM 大脑，需要先在本机配置 API Key：
 
 ```bash
 export OPENAI_API_KEY="你的 OpenAI API Key"
-python3 -m valuation_agent.cli "沪深三百" --resolve-only --brain llm
+python3 -m valuation_agent.cli "沪深三百" --resolve-only
 ```
 
 如果使用 OpenAI 兼容网关，可在本地私有环境中额外设置 `OPENAI_BASE_URL`。默认模型是 `gpt-4o-mini`。
@@ -83,10 +83,10 @@ pnpm dev --host 127.0.0.1 --port 5173
 ## 三步流程与检验
 
 1. 大脑判断
-   - 规则候选底座：`valuation_agent/brain.py`
+   - 候选召回：`valuation_agent/candidate_retriever.py`
    - LLM 结构化大脑：`valuation_agent/llm_brain.py`
-   - 检验：`python3 -m unittest tests/test_brain.py tests/test_llm_brain.py`
-   - 覆盖：代码识别、名称模糊匹配、错别字、行业指数模糊查询、JSON Schema 校验、候选校验、异常回灌重试、低置信度确认。
+   - 检验：`python3 -m unittest tests/test_candidate_retriever.py tests/test_llm_brain.py`
+   - 覆盖：候选召回、代码识别、名称模糊匹配、错别字、行业指数模糊查询、JSON Schema 校验、候选校验、异常回灌重试、低置信度确认。
 
 2. 获取信息
    - 文件：`valuation_agent/data.py`

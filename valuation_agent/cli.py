@@ -13,11 +13,10 @@ def main() -> None:
     parser.add_argument("--start", default=None, help="开始日期，例如 2010-01-01")
     parser.add_argument("--end", default=None, help="结束日期，例如 2026-07-10")
     parser.add_argument("--output-dir", default="reports", help="输出目录")
-    parser.add_argument("--brain", choices=["auto", "llm", "rules"], default="auto", help="判断大脑：auto/llm/rules")
     parser.add_argument("--resolve-only", action="store_true", help="只运行第一步标的判断，不获取数据、不绘图")
     args = parser.parse_args()
 
-    agent = ValuationAgent(brain_mode=args.brain)
+    agent = ValuationAgent()
     if args.resolve_only:
         resolution = agent.resolve(args.query)
         print_resolution(resolution)

@@ -61,7 +61,7 @@ export default function App() {
       const response = await fetch("/api/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, brain: "llm" }),
+        body: JSON.stringify({ query }),
         signal: controller.signal,
       });
 

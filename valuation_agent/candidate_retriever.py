@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from difflib import SequenceMatcher
 
-from valuation_agent.models import AssetCandidate, AssetType, Resolution
+from valuation_agent.models import AssetCandidate, AssetType
 
 
 INDEX_ALIASES: dict[str, tuple[str, str, AssetType, dict[str, str]]] = {
@@ -72,41 +72,37 @@ CODE_PATTERN = re.compile(r"^(?:sh|sz)?(?P<code>\d{6})(?:\.(?:sh|sz))?$", re.IGN
 ETF_PATTERN = re.compile(r"^(?:sh|sz)?(?P<code>5\d{5}|1\d{5})(?:\.(?:sh|sz))?$", re.IGNORECASE)
 
 
-class Brain:
-    """Rule and fuzzy based resolver for Chinese investment queries."""
+class CandidateRetriever:
+    """Build verifiable candidate context for the LLM prompt."""
 
     def __init__(self, stock_catalog: list[AssetCandidate] | None = None) -> None:
         self.stock_catalog = stock_catalog or []
         self.index_candidates = self._build_index_candidates()
 
-    def resolve(self, query: str) -> Resolution:
+    def collect(self, query: str, limit: int = 12) -> list[AssetCandidate]:
         normalized = normalize_query(query)
         if not normalized:
-            return Resolution(query, AssetType.UNKNOWN, None, [], "请输入股票、指数或行业关键词。")
+            return []
 
-        direct = self._resolve_direct_code(normalized)
-        if direct:
-            return Resolution(query, direct.asset_type, direct, [direct], f"识别为{asset_type_label(direct.asset_type)}：{direct.display_name}。")
+        candidates: list[AssetCandidate] = []
+        direct = self.find_direct_code(normalized)
+        if direct and direct.asset_type != AssetType.ETF:
+            candidates.append(direct)
 
-        industry = self._resolve_industry(normalized)
-        if industry:
-            return industry
+        candidates.extend(self.find_industry_candidates(normalized))
 
-        exact_index = self._resolve_index(normalized, exact=True)
-        if exact_index:
-            return Resolution(query, exact_index.asset_type, exact_index, [exact_index], f"识别为指数：{exact_index.display_name}。")
+        index = self.find_index(normalized, exact=False)
+        if index:
+            candidates.append(index)
 
-        stock = self._resolve_stock_name(normalized)
-        if stock:
-            return Resolution(query, stock.asset_type, stock, [stock], f"识别为 A 股个股：{stock.display_name}。")
+        if self.stock_catalog:
+            candidates.extend(self.top_from_catalog(normalized, self.stock_catalog, limit=5))
 
-        fuzzy = self._fuzzy_candidates(normalized)
-        if fuzzy:
-            primary = fuzzy[0]
-            explanation = f"没有完全命中，按相似度推测最可能是：{primary.display_name}。"
-            return Resolution(query, primary.asset_type, primary, fuzzy[:5], explanation)
+        for candidate in self.index_candidates:
+            if normalized in candidate.name.lower() or normalized in candidate.symbol.lower():
+                candidates.append(candidate)
 
-        return Resolution(query, AssetType.UNKNOWN, None, [], "暂时无法判断标的，请尝试输入更完整的股票代码、股票名称或指数名称。")
+        return dedupe_candidates(candidates, limit=limit)
 
     def _build_index_candidates(self) -> list[AssetCandidate]:
         seen: set[tuple[str, str]] = set()
@@ -119,7 +115,7 @@ class Brain:
             candidates.append(AssetCandidate(asset_type, symbol, name, 1.0, f"指数别名：{alias}", metadata))
         return candidates
 
-    def _resolve_direct_code(self, normalized: str) -> AssetCandidate | None:
+    def find_direct_code(self, normalized: str) -> AssetCandidate | None:
         match = CODE_PATTERN.match(normalized)
         if not match:
             return None
@@ -127,36 +123,22 @@ class Brain:
         if ETF_PATTERN.match(normalized):
             return AssetCandidate(AssetType.ETF, code, f"ETF {code}", 1.0, "识别为场内 ETF 代码")
         suffix = infer_a_share_suffix(code)
-        return AssetCandidate(AssetType.A_STOCK, f"{code}.{suffix}", code, 1.0, "识别为 A 股代码", {"raw_code": code})
+        return AssetCandidate(AssetType.A_STOCK, f"{code}.{suffix}", code, 1.0, "候选来自 A 股代码格式", {"raw_code": code})
 
-    def _resolve_industry(self, normalized: str) -> Resolution | None:
+    def find_industry_candidates(self, normalized: str) -> list[AssetCandidate]:
         if not any(token in normalized for token in ("行业", "板块", "主题", "赛道")):
-            return None
+            return []
         for keyword, candidates in INDUSTRY_HINTS.items():
             if keyword in normalized:
-                primary = candidates[0]
-                return Resolution(
-                    normalized,
-                    AssetType.INDUSTRY_INDEX,
-                    primary,
-                    candidates,
-                    f"识别为“{keyword}”相关行业/主题查询，优先给出行业指数候选。",
-                )
+                return candidates
+
         keyword_scores = [(keyword, similarity(normalized, keyword)) for keyword in INDUSTRY_HINTS]
         keyword_scores.sort(key=lambda item: item[1], reverse=True)
         if keyword_scores and keyword_scores[0][1] >= 0.35:
-            keyword = keyword_scores[0][0]
-            candidates = INDUSTRY_HINTS[keyword]
-            return Resolution(
-                normalized,
-                AssetType.INDUSTRY_INDEX,
-                candidates[0],
-                candidates,
-                f"识别为行业/主题查询，最接近“{keyword}”，优先给出行业指数候选。",
-            )
-        return None
+            return INDUSTRY_HINTS[keyword_scores[0][0]]
+        return []
 
-    def _resolve_index(self, normalized: str, exact: bool = False) -> AssetCandidate | None:
+    def find_index(self, normalized: str, exact: bool = False) -> AssetCandidate | None:
         if normalized in INDEX_ALIASES:
             symbol, name, asset_type, metadata = INDEX_ALIASES[normalized]
             return AssetCandidate(asset_type, symbol, name, 1.0, "命中指数别名", metadata)
@@ -173,33 +155,12 @@ class Brain:
             return best
         return None
 
-    def _resolve_stock_name(self, normalized: str) -> AssetCandidate | None:
-        if not self.stock_catalog:
-            return None
-        best = self._best_from_catalog(normalized, self.stock_catalog)
-        if best and best.score >= 0.82:
-            return best
-        return None
-
-    def _fuzzy_candidates(self, normalized: str) -> list[AssetCandidate]:
-        candidates: list[AssetCandidate] = []
-        index = self._resolve_index(normalized, exact=False)
-        if index:
-            candidates.append(index)
-        if self.stock_catalog:
-            candidates.extend(self._top_from_catalog(normalized, self.stock_catalog, limit=4))
-        candidates.sort(key=lambda item: item.score, reverse=True)
-        return candidates
-
-    def _best_from_catalog(self, normalized: str, catalog: list[AssetCandidate]) -> AssetCandidate | None:
-        top = self._top_from_catalog(normalized, catalog, limit=1)
-        return top[0] if top else None
-
-    def _top_from_catalog(self, normalized: str, catalog: list[AssetCandidate], limit: int = 5) -> list[AssetCandidate]:
+    def top_from_catalog(self, normalized: str, catalog: list[AssetCandidate], limit: int = 5) -> list[AssetCandidate]:
         scored: list[AssetCandidate] = []
         for candidate in catalog:
-            score = max(similarity(normalized, candidate.name), similarity(normalized, candidate.symbol.lower()))
-            if normalized in candidate.name.lower():
+            symbol = candidate.symbol.lower()
+            score = max(similarity(normalized, candidate.name), similarity(normalized, symbol))
+            if normalized in candidate.name.lower() or normalized in symbol:
                 score = max(score, 0.95)
             if score >= 0.45:
                 scored.append(
@@ -208,12 +169,28 @@ class Brain:
                         candidate.symbol,
                         candidate.name,
                         score,
-                        f"相似度 {score:.0%}",
+                        f"候选召回相似度 {score:.0%}",
                         candidate.metadata,
                     )
                 )
         scored.sort(key=lambda item: item.score, reverse=True)
         return scored[:limit]
+
+
+def dedupe_candidates(candidates: list[AssetCandidate], limit: int) -> list[AssetCandidate]:
+    seen: set[tuple[AssetType, str, str]] = set()
+    unique: list[AssetCandidate] = []
+    for candidate in candidates:
+        if candidate.asset_type == AssetType.ETF:
+            continue
+        key = (candidate.asset_type, candidate.symbol, candidate.name)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(candidate)
+        if len(unique) >= limit:
+            break
+    return unique
 
 
 def normalize_query(query: str) -> str:
@@ -228,16 +205,3 @@ def infer_a_share_suffix(code: str) -> str:
     if code.startswith(("6", "9")):
         return "SH"
     return "SZ"
-
-
-def asset_type_label(asset_type: AssetType) -> str:
-    labels = {
-        AssetType.A_STOCK: "A 股个股",
-        AssetType.INDEX: "指数",
-        AssetType.INDUSTRY_INDEX: "行业指数",
-        AssetType.MARKET: "市场指数",
-        AssetType.ETF: "ETF",
-        AssetType.INDUSTRY_QUERY: "行业/主题",
-        AssetType.UNKNOWN: "未知对象",
-    }
-    return labels[asset_type]

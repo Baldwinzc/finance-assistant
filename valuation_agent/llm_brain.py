@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 from jsonschema import Draft202012Validator, ValidationError
 
-from valuation_agent.brain import Brain, INDEX_ALIASES, INDUSTRY_HINTS, normalize_query
+from valuation_agent.candidate_retriever import CandidateRetriever, INDEX_ALIASES, INDUSTRY_HINTS
 from valuation_agent.config import load_private_env
 from valuation_agent.models import AssetCandidate, AssetType, Resolution
 
@@ -127,7 +127,7 @@ class LLMBrain:
         min_confidence: float = MIN_CONFIDENCE_FOR_AUTO_RUN,
     ) -> None:
         self.stock_catalog = stock_catalog or []
-        self.rule_brain = Brain(stock_catalog=self.stock_catalog)
+        self.candidate_retriever = CandidateRetriever(stock_catalog=self.stock_catalog)
         self.model = model or os.getenv("VALUATION_AGENT_LLM_MODEL", "gpt-4o-mini")
         self.llm_response_provider = llm_response_provider
         self.max_retries = max_retries
@@ -158,7 +158,7 @@ class LLMBrain:
                     candidates=[],
                     explanation=str(exc),
                     needs_clarification=True,
-                    clarification_question="请先配置 OPENAI_API_KEY 后再使用 LLM 大脑，或临时切换为 rules 模式。",
+                    clarification_question="请先在本机环境变量或私有 .env 中配置 OPENAI_API_KEY，然后重新提交问题。",
                     debug={"llm_errors": [format_retry_error(exc)]},
                 )
             except Exception as exc:
@@ -177,37 +177,9 @@ class LLMBrain:
         )
 
     def _build_candidate_context(self, query: str) -> list[CandidateContext]:
-        normalized = normalize_query(query)
-        seen: set[tuple[AssetType, str, str]] = set()
-        candidates: list[AssetCandidate] = []
-
-        direct = self.rule_brain._resolve_direct_code(normalized)
-        if direct and direct.asset_type != AssetType.ETF:
-            candidates.append(direct)
-
-        industry = self.rule_brain._resolve_industry(normalized)
-        if industry:
-            candidates.extend(industry.candidates)
-
-        exact_index = self.rule_brain._resolve_index(normalized, exact=False)
-        if exact_index:
-            candidates.append(exact_index)
-
-        stock_matches = self.rule_brain._top_from_catalog(normalized, self.stock_catalog, limit=5) if self.stock_catalog else []
-        candidates.extend(stock_matches)
-
-        for candidate in self.rule_brain.index_candidates:
-            if normalized and (normalized in candidate.name.lower() or normalized in candidate.symbol.lower()):
-                candidates.append(candidate)
-
+        candidates = self.candidate_retriever.collect(query)
         context: list[CandidateContext] = []
         for candidate in candidates:
-            if candidate.asset_type == AssetType.ETF:
-                continue
-            key = (candidate.asset_type, candidate.symbol, candidate.name)
-            if key in seen:
-                continue
-            seen.add(key)
             context.append(
                 CandidateContext(
                     candidate_id=f"cand_{len(context) + 1}",
@@ -216,8 +188,6 @@ class LLMBrain:
                     aliases=find_aliases(candidate),
                 )
             )
-            if len(context) >= 12:
-                break
         return context
 
     def _build_messages(self, query: str, context: list[CandidateContext], errors: list[str]) -> list[dict[str, str]]:

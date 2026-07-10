@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-import os
 
-from valuation_agent.brain import Brain
 from valuation_agent.charts import build_valuation_chart, summarize_valuation
 from valuation_agent.data import DataFetchError, DataSource
 from valuation_agent.llm_brain import LLMBrain
@@ -15,7 +13,6 @@ class ValuationAgent:
         self,
         data_source: DataSource | None = None,
         load_live_catalog: bool = True,
-        brain_mode: str = "auto",
     ) -> None:
         self.data_source = data_source or DataSource()
         stock_catalog = []
@@ -24,11 +21,7 @@ class ValuationAgent:
                 stock_catalog = self.data_source.fetch_stock_catalog()
             except DataFetchError:
                 stock_catalog = []
-        self.brain_mode = brain_mode
-        if brain_mode == "llm" or (brain_mode == "auto" and os.getenv("OPENAI_API_KEY")):
-            self.brain = LLMBrain(stock_catalog=stock_catalog)
-        else:
-            self.brain = Brain(stock_catalog=stock_catalog)
+        self.brain = LLMBrain(stock_catalog=stock_catalog)
 
     def resolve(self, query: str):
         return self.brain.resolve(query)
