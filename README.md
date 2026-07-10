@@ -6,8 +6,8 @@
 
 - A 股个股：默认使用 AkShare 东方财富估值接口，输出股价、PE(TTM)、PB、历史分位。
 - 主流宽基/市场指数：默认使用 AkShare 乐咕乐股接口，输出指数价格、PE、PB、历史分位。
-- 行业模糊查询：先给出相关行业指数、ETF 或主题候选；能拿到估值的对象会直接画图，不能拿到 PE/PB 的会说明数据限制。
-- 中文交互：命令行和 Streamlit 页面均以中文为主。
+- 行业模糊查询：当前阶段优先识别行业指数；ETF 估值后续实现。
+- 中文交互：命令行、Streamlit 页面和 React 聊天框。
 
 > 投资判断请结合财报质量、商业模式、现金流、行业周期和风险承受能力；本项目只提供数据整理和估值位置辅助，不构成投资建议。
 
@@ -43,6 +43,9 @@ export OPENAI_API_KEY="你的 OpenAI API Key"
 python3 -m valuation_agent.cli "沪深三百" --resolve-only --brain llm
 ```
 
+如果使用 OpenAI 兼容网关，可在本地私有环境中额外设置 `OPENAI_BASE_URL`。默认模型是 `gpt-4o-mini`。
+也可以复制 `.env.example` 为 `.env` 或 `.env.local` 后填入私有配置；这些文件不会提交。
+
 LLM 大脑会先让模型输出结构化 JSON，然后做本地 schema 校验和候选校验。若模型输出不是合法 JSON、schema 不匹配、候选代码不在上下文中，系统会把异常信息放回上下文中要求模型重试。置信度低于阈值时不会继续获取数据或绘图，而是要求用户确认候选。
 
 默认会在 `reports/` 下生成：
@@ -51,13 +54,31 @@ LLM 大脑会先让模型输出结构化 JSON，然后做本地 schema 校验和
 - `*.csv`：原始历史数据
 - `*.json`：本次判断和历史分位摘要
 
-## 中文网页界面
+## Streamlit 界面
 
 ```bash
 streamlit run app.py
 ```
 
 打开页面后输入“600519”“贵州茅台”“沪深三百”“医疗行业”等关键词即可。
+
+## React 聊天框
+
+后端 API：
+
+```bash
+python3 -m uvicorn valuation_agent.api:app --host 127.0.0.1 --port 8000
+```
+
+前端：
+
+```bash
+cd frontend
+pnpm install
+pnpm dev --host 127.0.0.1 --port 5173
+```
+
+打开 `http://127.0.0.1:5173/`。当前前端只调用第一步标的判断接口 `/api/resolve`，不会获取估值数据或绘图。
 
 ## 三步流程与检验
 
@@ -95,4 +116,4 @@ python -m unittest discover -s tests
 
 ## 前端说明
 
-当前项目仍是 Python + Streamlit 的本地 MVP。已收到 React + shadcn/Tailwind/TypeScript 的聊天输入组件要求；正式前端迁移时应新建 React/TypeScript 前端，并将 `chat-input.tsx` 放入 `/components/ui`，同时补齐 `button`、`textarea`、`use-textarea-resize`、`lucide-react`、`@radix-ui/react-slot` 和 `class-variance-authority` 依赖。
+React 前端位于 `frontend/`，使用 TypeScript、Tailwind CSS 和 shadcn 风格组件结构。聊天输入组件在 `frontend/src/components/ui/chat-input.tsx`，依赖 `button`、`textarea`、`use-textarea-resize`、`lucide-react`、`@radix-ui/react-slot` 和 `class-variance-authority`。

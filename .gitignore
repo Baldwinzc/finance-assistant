@@ -3,6 +3,14 @@ __pycache__/
 *.pyc
 .DS_Store
 .env
+.env.*
+!.env.example
+*.local.md
+*.secrets.md
+secrets/
 reports/
 reports_smoke/
 .pytest_cache/
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo

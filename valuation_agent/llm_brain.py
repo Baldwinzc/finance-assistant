@@ -8,6 +8,7 @@ from typing import Any, Callable
 from jsonschema import Draft202012Validator, ValidationError
 
 from valuation_agent.brain import Brain, INDEX_ALIASES, INDUSTRY_HINTS, normalize_query
+from valuation_agent.config import load_private_env
 from valuation_agent.models import AssetCandidate, AssetType, Resolution
 
 
@@ -225,6 +226,7 @@ class LLMBrain:
             "supported_scope": ["A股个股", "指数", "行业指数"],
             "unsupported_scope": ["ETF估值暂不实现"],
             "candidates_context": [item.to_prompt_item() for item in context],
+            "output_schema": LLM_RESOLUTION_SCHEMA,
         }
         if errors:
             user_payload["previous_errors"] = errors
@@ -239,6 +241,7 @@ class LLMBrain:
         if self.llm_response_provider:
             return self.llm_response_provider(messages, LLM_RESOLUTION_SCHEMA)
 
+        load_private_env()
         if not os.getenv("OPENAI_API_KEY"):
             raise LLMConfigurationError("缺少 OPENAI_API_KEY，无法调用真实 LLM。")
 
@@ -247,19 +250,16 @@ class LLMBrain:
         except ImportError as exc:
             raise LLMConfigurationError("缺少 openai 依赖，请先运行：python3 -m pip install -r requirements.txt") from exc
 
-        client = OpenAI()
+        client_kwargs = {"api_key": os.environ["OPENAI_API_KEY"]}
+        base_url = os.getenv("OPENAI_BASE_URL")
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        client = OpenAI(**client_kwargs)
         response = client.chat.completions.create(
             model=self.model,
             messages=messages,
             temperature=0,
-            response_format={
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "valuation_asset_resolution",
-                    "strict": True,
-                    "schema": LLM_RESOLUTION_SCHEMA,
-                },
-            },
+            response_format={"type": "json_object"},
         )
         message = response.choices[0].message
         refusal = getattr(message, "refusal", None)
