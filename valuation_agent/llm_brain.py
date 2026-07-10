@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -225,12 +226,18 @@ class LLMBrain:
         if base_url:
             client_kwargs["base_url"] = base_url
         client = OpenAI(**client_kwargs)
-        response = client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=0,
-            response_format={"type": "json_object"},
-        )
+        try:
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0,
+                response_format={"type": "json_object"},
+            )
+        except Exception as exc:
+            status_code = getattr(exc, "status_code", None)
+            if status_code == 401:
+                raise LLMConfigurationError("OPENAI_API_KEY 无效或已失效，请检查 .env.local 后重新填写有效 Key。") from exc
+            raise
         message = response.choices[0].message
         refusal = getattr(message, "refusal", None)
         if refusal:
@@ -335,6 +342,11 @@ def find_aliases(candidate: AssetCandidate) -> list[str]:
 
 def format_retry_error(exc: Exception) -> str:
     message = str(exc)
+    message = redact_secret_like_values(message)
     if len(message) > 1200:
         message = message[:1200] + "..."
     return f"{exc.__class__.__name__}: {message}"
+
+
+def redact_secret_like_values(message: str) -> str:
+    return re.sub(r"sk-[A-Za-z0-9_*\\-]{6,}", "sk-***", message)
