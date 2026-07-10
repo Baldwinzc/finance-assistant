@@ -28,6 +28,10 @@ class CandidateRetrieverTest(unittest.TestCase):
         candidates = self.retriever.collect("沪深三百")
         self.assertTrue(any(item.asset_type == AssetType.INDEX and item.name == "沪深300" for item in candidates))
 
+    def test_collects_hang_seng_tech_index_candidate(self):
+        candidates = self.retriever.collect("恒生科技指数")
+        self.assertTrue(any(item.asset_type == AssetType.INDEX and item.symbol == "HSTECH.HK" for item in candidates))
+
     def test_collects_industry_candidates(self):
         candidates = self.retriever.collect("医疗行业")
         industry_candidates = [item for item in candidates if item.asset_type == AssetType.INDUSTRY_INDEX]

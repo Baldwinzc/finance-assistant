@@ -60,10 +60,13 @@ export default function App() {
     ]);
 
     try {
+      const history = messages
+        .slice(-10)
+        .map(({ role, content }) => ({ role, content }));
       const response = await fetch("/api/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, history }),
         signal: controller.signal,
       });
 

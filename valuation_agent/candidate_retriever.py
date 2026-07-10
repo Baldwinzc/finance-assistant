@@ -30,6 +30,15 @@ INDEX_ALIASES: dict[str, tuple[str, str, AssetType, dict[str, str]]] = {
     "深证成指": ("399001.SZ", "深证成指", AssetType.MARKET, {"market": "深圳"}),
     "创业板指": ("399006.SZ", "创业板指", AssetType.MARKET, {"market": "创业板"}),
     "科创板": ("000688.SH", "科创板", AssetType.MARKET, {"market": "科创板"}),
+    "恒生指数": ("HSI.HK", "恒生指数", AssetType.INDEX, {"market": "香港"}),
+    "恒指": ("HSI.HK", "恒生指数", AssetType.INDEX, {"market": "香港"}),
+    "hsi": ("HSI.HK", "恒生指数", AssetType.INDEX, {"market": "香港"}),
+    "恒生科技指数": ("HSTECH.HK", "恒生科技指数", AssetType.INDEX, {"market": "香港"}),
+    "恒生科技": ("HSTECH.HK", "恒生科技指数", AssetType.INDEX, {"market": "香港"}),
+    "恒科": ("HSTECH.HK", "恒生科技指数", AssetType.INDEX, {"market": "香港"}),
+    "hstech": ("HSTECH.HK", "恒生科技指数", AssetType.INDEX, {"market": "香港"}),
+    "hstechindex": ("HSTECH.HK", "恒生科技指数", AssetType.INDEX, {"market": "香港"}),
+    "hangsengtechindex": ("HSTECH.HK", "恒生科技指数", AssetType.INDEX, {"market": "香港"}),
 }
 
 

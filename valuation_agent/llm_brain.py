@@ -82,6 +82,7 @@ SYSTEM_PROMPT = """你是一个中文金融估值助手的“第一步大脑”�
 5. 如果置信度低、多个候选接近、或没有足够信息，needs_clarification 必须为 true，primary_candidate_id 为空字符串。
 6. 如果能明确识别，needs_clarification 为 false，primary_candidate_id 必须是 candidates 中置信度最高的候选。
 7. 不要给投资建议，不要判断买卖，只做标的识别。
+8. 必须结合 conversation_history 理解省略、指代和用户对上一轮澄清问题的回答，但最终候选仍只能来自 candidates_context。
 
 输出字段要求：
 - confidence 表示“这个候选就是用户所问标的”的置信度，不是投资机会置信度。
@@ -138,13 +139,14 @@ class LLMBrain:
         self.min_confidence = min_confidence
         self.schema_validator = Draft202012Validator(LLM_RESOLUTION_SCHEMA)
 
-    def resolve(self, query: str) -> Resolution:
-        context = self._build_candidate_context(query)
+    def resolve(self, query: str, conversation_history: list[dict[str, str]] | None = None) -> Resolution:
+        history = normalize_conversation_history(conversation_history)
+        context = self._build_candidate_context(query, history)
         errors: list[str] = []
         raw_responses: list[str] = []
 
         for attempt in range(self.max_retries + 1):
-            messages = self._build_messages(query=query, context=context, errors=errors)
+            messages = self._build_messages(query=query, context=context, history=history, errors=errors)
             try:
                 raw = self._call_llm(messages)
                 raw_responses.append(raw)
@@ -184,10 +186,18 @@ class LLMBrain:
             debug={"llm_errors": errors, "llm_raw_responses": raw_responses},
         )
 
-    def _build_candidate_context(self, query: str) -> list[CandidateContext]:
-        candidates = self.candidate_retriever.collect(query)
+    def _build_candidate_context(self, query: str, history: list[dict[str, str]] | None = None) -> list[CandidateContext]:
+        candidates: list[AssetCandidate] = []
+        for search_query in build_candidate_search_queries(query, history):
+            candidates.extend(self.candidate_retriever.collect(search_query))
+
         context: list[CandidateContext] = []
+        seen: set[tuple[AssetType, str, str]] = set()
         for candidate in candidates:
+            key = (candidate.asset_type, candidate.symbol, candidate.name)
+            if key in seen:
+                continue
+            seen.add(key)
             context.append(
                 CandidateContext(
                     candidate_id=f"cand_{len(context) + 1}",
@@ -196,11 +206,21 @@ class LLMBrain:
                     aliases=find_aliases(candidate),
                 )
             )
+            if len(context) >= 12:
+                break
         return context
 
-    def _build_messages(self, query: str, context: list[CandidateContext], errors: list[str]) -> list[dict[str, str]]:
+    def _build_messages(
+        self,
+        query: str,
+        context: list[CandidateContext],
+        history: list[dict[str, str]],
+        errors: list[str],
+    ) -> list[dict[str, str]]:
         user_payload: dict[str, Any] = {
             "query": query,
+            "conversation_history": history,
+            "conversation_instruction": "当前 query 可能是对上一轮澄清问题的回复，请结合 conversation_history 理解用户真实想分析的标的。",
             "supported_scope": ["A股个股", "指数", "行业指数"],
             "unsupported_scope": ["ETF估值暂不实现"],
             "candidates_context": [item.to_prompt_item() for item in context],
@@ -355,6 +375,31 @@ def find_aliases(candidate: AssetCandidate) -> list[str]:
         if any(item.symbol == candidate.symbol and item.name == candidate.name for item in candidates):
             aliases.append(keyword)
     return sorted(set(aliases))
+
+
+def normalize_conversation_history(history: list[dict[str, str]] | None, limit: int = 10) -> list[dict[str, str]]:
+    if not history:
+        return []
+    normalized: list[dict[str, str]] = []
+    for message in history[-limit:]:
+        role = message.get("role")
+        content = str(message.get("content", "")).strip()
+        if role not in {"user", "assistant"} or not content:
+            continue
+        normalized.append({"role": role, "content": content[:1200]})
+    return normalized
+
+
+def build_candidate_search_queries(query: str, history: list[dict[str, str]] | None = None, limit: int = 4) -> list[str]:
+    queries = [query]
+    if history:
+        for message in reversed(history):
+            if message["role"] != "user":
+                continue
+            queries.append(message["content"])
+            if len(queries) >= limit:
+                break
+    return [item for item in queries if item.strip()]
 
 
 def format_retry_error(exc: Exception) -> str:

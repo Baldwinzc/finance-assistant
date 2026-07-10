@@ -111,6 +111,26 @@ class LLMBrainTest(unittest.TestCase):
         self.assertEqual(result.asset_type, AssetType.INDUSTRY_INDEX)
         self.assertEqual(result.primary.name, "中证医疗")
 
+    def test_follow_up_uses_conversation_history(self):
+        def provider(messages, schema):
+            payload = json.loads(messages[-1]["content"])
+            self.assertEqual(payload["query"], "是指数")
+            self.assertEqual(payload["conversation_history"][0]["content"], "恒生科技指数")
+            candidate = payload["candidates_context"][0]
+            self.assertEqual(candidate["symbol"], "HSTECH.HK")
+            return response_for(candidate)
+
+        brain = LLMBrain(stock_catalog=self.stock_catalog, llm_response_provider=provider)
+        result = brain.resolve(
+            "是指数",
+            conversation_history=[
+                {"role": "user", "content": "恒生科技指数"},
+                {"role": "assistant", "content": "请确认你说的是指数还是个股？"},
+            ],
+        )
+        self.assertEqual(result.asset_type, AssetType.INDEX)
+        self.assertEqual(result.primary.symbol, "HSTECH.HK")
+
 
 if __name__ == "__main__":
     unittest.main()

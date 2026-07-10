@@ -23,8 +23,8 @@ class ValuationAgent:
                 stock_catalog = []
         self.brain = LLMBrain(stock_catalog=stock_catalog)
 
-    def resolve(self, query: str):
-        return self.brain.resolve(query)
+    def resolve(self, query: str, history: list[dict[str, str]] | None = None):
+        return self.brain.resolve(query, conversation_history=history)
 
     def analyze(self, query: str, start: str | None = None, end: str | None = None) -> AnalysisResult:
         resolution = self.resolve(query)
