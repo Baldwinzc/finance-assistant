@@ -129,6 +129,7 @@ class LLMBrain:
         max_retries: int = 2,
         min_confidence: float = MIN_CONFIDENCE_FOR_AUTO_RUN,
     ) -> None:
+        load_private_env()
         self.stock_catalog = stock_catalog or []
         self.candidate_retriever = CandidateRetriever(stock_catalog=self.stock_catalog)
         self.model = model or os.getenv("VALUATION_AGENT_LLM_MODEL", "gpt-4o-mini")
@@ -246,6 +247,11 @@ class LLMBrain:
                     "OPENAI_API_KEY 无效或已失效，请检查 .env.local 后重新填写有效 Key。",
                     "invalid_api_key",
                 ) from exc
+            if status_code == 400 and "Invalid model name" in str(exc):
+                raise LLMConfigurationError(
+                    f"模型 {self.model} 不被当前网关支持，请把 VALUATION_AGENT_LLM_MODEL 改成 /v1/models 返回的可用模型。",
+                    "invalid_model",
+                ) from exc
             raise
         message = response.choices[0].message
         refusal = getattr(message, "refusal", None)
@@ -300,6 +306,8 @@ class LLMBrain:
             primary = next(item for item in selected if item.metadata.get("candidate_id") == primary_id)
 
         needs_clarification = bool(payload["needs_clarification"])
+        if not needs_clarification and not primary:
+            raise LLMResolutionError("候选校验失败：不需要澄清时必须提供有效 primary_candidate_id。")
         if primary and primary.score < self.min_confidence:
             needs_clarification = True
         if needs_clarification:

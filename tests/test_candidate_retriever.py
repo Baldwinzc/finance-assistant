@@ -17,6 +17,8 @@ class CandidateRetrieverTest(unittest.TestCase):
         candidates = self.retriever.collect("600519")
         self.assertEqual(candidates[0].asset_type, AssetType.A_STOCK)
         self.assertEqual(candidates[0].symbol, "600519.SH")
+        self.assertEqual(candidates[0].name, "贵州茅台")
+        self.assertEqual(len(candidates), 1)
 
     def test_collects_stock_name_candidate(self):
         candidates = self.retriever.collect("贵州茅台")

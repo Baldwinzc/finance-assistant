@@ -87,7 +87,7 @@ class CandidateRetriever:
         candidates: list[AssetCandidate] = []
         direct = self.find_direct_code(normalized)
         if direct and direct.asset_type != AssetType.ETF:
-            candidates.append(direct)
+            return [direct]
 
         candidates.extend(self.find_industry_candidates(normalized))
 
@@ -123,7 +123,18 @@ class CandidateRetriever:
         if ETF_PATTERN.match(normalized):
             return AssetCandidate(AssetType.ETF, code, f"ETF {code}", 1.0, "识别为场内 ETF 代码")
         suffix = infer_a_share_suffix(code)
-        return AssetCandidate(AssetType.A_STOCK, f"{code}.{suffix}", code, 1.0, "候选来自 A 股代码格式", {"raw_code": code})
+        symbol = f"{code}.{suffix}"
+        for candidate in self.stock_catalog:
+            if candidate.symbol == symbol:
+                return AssetCandidate(
+                    candidate.asset_type,
+                    candidate.symbol,
+                    candidate.name,
+                    1.0,
+                    "候选来自 A 股代码格式，并命中股票目录",
+                    {**candidate.metadata, "raw_code": code},
+                )
+        return AssetCandidate(AssetType.A_STOCK, symbol, code, 1.0, "候选来自 A 股代码格式", {"raw_code": code})
 
     def find_industry_candidates(self, normalized: str) -> list[AssetCandidate]:
         if not any(token in normalized for token in ("行业", "板块", "主题", "赛道")):

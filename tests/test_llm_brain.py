@@ -80,6 +80,26 @@ class LLMBrainTest(unittest.TestCase):
         self.assertEqual(result.primary.symbol, "600519.SH")
         self.assertEqual(result.debug["llm_attempts"], 2)
 
+    def test_missing_primary_requires_retry_when_not_clarifying(self):
+        calls = []
+
+        def provider(messages, schema):
+            payload = json.loads(messages[-1]["content"])
+            calls.append(payload)
+            candidate = payload["candidates_context"][0]
+            if len(calls) == 1:
+                response = json.loads(response_for(candidate))
+                response["primary_candidate_id"] = ""
+                response["needs_clarification"] = False
+                return json.dumps(response, ensure_ascii=False)
+            self.assertIn("previous_errors", payload)
+            return response_for(candidate)
+
+        brain = LLMBrain(stock_catalog=self.stock_catalog, llm_response_provider=provider, max_retries=1)
+        result = brain.resolve("600519")
+        self.assertEqual(result.primary.symbol, "600519.SH")
+        self.assertEqual(result.debug["llm_attempts"], 2)
+
     def test_industry_index_not_etf(self):
         def provider(messages, schema):
             payload = json.loads(messages[-1]["content"])
