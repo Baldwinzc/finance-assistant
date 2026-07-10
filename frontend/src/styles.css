@@ -3,21 +3,21 @@
 @tailwind utilities;
 
 :root {
-  --background: 210 30% 98%;
-  --foreground: 222 35% 12%;
-  --muted: 210 18% 92%;
-  --muted-foreground: 215 16% 42%;
-  --accent: 160 55% 92%;
-  --accent-foreground: 164 70% 18%;
-  --primary: 222 72% 36%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 42 78% 90%;
-  --secondary-foreground: 34 55% 18%;
+  --background: 220 14% 2%;
+  --foreground: 0 0% 96%;
+  --muted: 240 4% 12%;
+  --muted-foreground: 240 5% 55%;
+  --accent: 240 4% 16%;
+  --accent-foreground: 0 0% 96%;
+  --primary: 0 0% 96%;
+  --primary-foreground: 0 0% 4%;
+  --secondary: 240 4% 16%;
+  --secondary-foreground: 0 0% 96%;
   --destructive: 0 72% 48%;
   --destructive-foreground: 0 0% 100%;
-  --border: 214 22% 82%;
-  --input: 214 22% 82%;
-  --ring: 222 72% 36%;
+  --border: 0 0% 17%;
+  --input: 0 0% 17%;
+  --ring: 0 0% 82%;
 }
 
 html,
@@ -37,4 +37,9 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+textarea,
+button {
+  font: inherit;
 }

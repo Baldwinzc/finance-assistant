@@ -53,7 +53,7 @@ function ChatInput({
       <div
         className={cn(
           variant === "default" &&
-            "flex w-full flex-col items-end rounded-lg border border-input bg-background p-2 focus-within:outline-none focus-within:ring-1 focus-within:ring-ring",
+            "flex w-full flex-row items-center gap-3 rounded-2xl border border-white/10 bg-[#08090b] px-5 py-3 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_24px_80px_rgba(0,0,0,0.45)] transition-colors focus-within:border-white/20",
           variant === "unstyled" && "flex w-full items-start gap-2",
           className,
         )}
@@ -111,9 +111,9 @@ function ChatInputTextArea({
       onChange={onChange}
       onKeyDown={handleKeyDown}
       className={cn(
-        "max-h-[400px] min-h-0 resize-none overflow-x-hidden",
+        "max-h-[220px] min-h-0 flex-1 resize-none overflow-x-hidden",
         variant === "unstyled" &&
-          "border-none shadow-none focus-visible:ring-0 focus-visible:ring-offset-0",
+          "border-none bg-transparent px-0 py-2 text-[15px] leading-6 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0",
         className,
       )}
       rows={rows}
@@ -146,7 +146,7 @@ function ChatInputSubmit({
       <Button
         onClick={onStop}
         className={cn(
-          "h-fit shrink-0 rounded-full border p-1.5 dark:border-zinc-600",
+          "h-10 w-10 shrink-0 rounded-full border border-zinc-500/30 bg-zinc-400 p-0 text-black transition-colors hover:bg-zinc-200",
           className,
         )}
         aria-label="停止"
@@ -163,7 +163,7 @@ function ChatInputSubmit({
   return (
     <Button
       className={cn(
-        "h-fit shrink-0 rounded-full border p-1.5 dark:border-zinc-600",
+        "h-10 w-10 shrink-0 rounded-full border border-zinc-500/30 bg-zinc-400 p-0 text-black transition-colors hover:bg-zinc-200 disabled:bg-zinc-400 disabled:text-black disabled:opacity-90",
         className,
       )}
       disabled={isDisabled}
